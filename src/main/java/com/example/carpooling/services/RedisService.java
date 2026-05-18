@@ -1,5 +1,7 @@
 package com.example.carpooling.services;
 
+import com.example.carpooling.entities.Ride;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -22,7 +24,7 @@ public class RedisService {
     private static final String popularityKey = "popularity";
 
     @Autowired
-    private RedisTemplate<String, Object> redisTemplate;
+    private RedisTemplate redisTemplate;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -33,7 +35,7 @@ public class RedisService {
             return objectMapper.readValue(o.toString(), entityClass);
         } catch (Exception e) {
             log.error(e.getMessage());
-            // e.printStackTrace();
+//            e.printStackTrace();
             return null;
         }
     }
@@ -41,17 +43,17 @@ public class RedisService {
     public <T> List<T> getList(String key, Class<T> elementType) {
         try {
             Object json = redisTemplate.opsForValue().get(key);
-            if (json == null)
-                return null;
+            if (json==null) return null;
 
             JavaType type = objectMapper.getTypeFactory().constructCollectionType(List.class, elementType);
             return objectMapper.readValue(json.toString(), type);
         } catch (Exception e) {
             log.error(e.getMessage());
-            // e.printStackTrace();
+//            e.printStackTrace();
             return null;
         }
     }
+
 
     public void set(String key, Object o, Long ttl) {
         try {
@@ -59,89 +61,63 @@ public class RedisService {
             redisTemplate.opsForValue().set(key, jsonValue, ttl, TimeUnit.SECONDS);
         } catch (Exception e) {
             log.error(e.getMessage());
-            // e.printStackTrace();
+//            e.printStackTrace();
         }
     }
 
-    public Long incrCount(String key) {
-        try {
-            return redisTemplate.opsForValue().increment(key);
-        } catch (Exception e) {
-            log.error(e.getMessage());
-            return 1L;
-        }
+    public Long incrCount(String key){
+        return redisTemplate.opsForValue().increment(key);
     }
 
-    public void setExpiry(String key, Long ttl) {
-        try {
-            redisTemplate.opsForValue().getAndExpire(key, Duration.ofMinutes(ttl));
-        } catch (Exception e) {
-            log.error(e.getMessage());
-        }
+    public void setExpiry(String key,Long ttl){
+        redisTemplate.opsForValue().getAndExpire(key,Duration.ofMinutes(ttl));
     }
 
     public void incrementCityCount(String city) {
-        try {
-            redisTemplate.opsForZSet().incrementScore(popularityKey, city, 1.0);
-        } catch (Exception e) {
-            log.error(e.getMessage());
-        }
+        redisTemplate.opsForZSet().incrementScore(popularityKey, city, 1.0);
     }
 
     public Set<String> getTop5Cities() {
-        try {
-            Set<ZSetOperations.TypedTuple<Object>> topCitiesWithScores = redisTemplate.opsForZSet()
-                    .reverseRangeWithScores(popularityKey, 0, 4);
+//        delete(popularityKey);
+        Set<ZSetOperations.TypedTuple<Object>> topCitiesWithScores =
+                redisTemplate.opsForZSet().reverseRangeWithScores(popularityKey, 0, 4);
 
-            if (topCitiesWithScores == null || topCitiesWithScores.isEmpty()) {
-                return Collections.emptySet();
-            }
-
-            return topCitiesWithScores.stream()
-                    .map(tuple -> tuple.getValue() != null ? tuple.getValue().toString() : null)
-                    .filter(value -> value != null && !value.isEmpty())
-                    .collect(Collectors.toSet());
-        } catch (Exception e) {
-            log.error(e.getMessage());
+        if (topCitiesWithScores == null || topCitiesWithScores.isEmpty()) {
             return Collections.emptySet();
         }
+
+        return topCitiesWithScores.stream()
+                .map(tuple -> tuple.getValue() != null ? tuple.getValue().toString() : null)
+                .filter(value -> value != null && !value.isEmpty())
+                .collect(Collectors.toSet());
     }
+
 
     public List<String> getToRemoveCity() {
-        try {
-            Set<ZSetOperations.TypedTuple<Object>> topCitiesWithScores = redisTemplate.opsForZSet()
-                    .reverseRangeWithScores(popularityKey, 5, 5);
+        Set<ZSetOperations.TypedTuple<Object>> topCitiesWithScores =
+                redisTemplate.opsForZSet().reverseRangeWithScores(popularityKey, 5, 5);
 
-            if (topCitiesWithScores == null) {
-                return Collections.emptyList();
-            }
-
-            return topCitiesWithScores.stream()
-                    .map(tuple -> tuple.getValue() != null ? tuple.getValue().toString() : null)
-                    .filter(value -> value != null)
-                    .collect(Collectors.toList());
-        } catch (Exception e) {
-            log.error(e.getMessage());
+        if (topCitiesWithScores == null) {
             return Collections.emptyList();
         }
+
+        return topCitiesWithScores.stream()
+                .map(tuple -> tuple.getValue() != null ? tuple.getValue().toString() : null)
+                .filter(value -> value != null)
+                .collect(Collectors.toList());
     }
 
-    public Long getLength() {
-        try {
-            Long length = redisTemplate.opsForZSet().zCard(popularityKey);
-            return length != null ? length : 0L;
-        } catch (Exception e) {
-            log.error(e.getMessage());
-            return 0L;
-        }
+    public Long getLength(){
+        return redisTemplate.opsForZSet().zCard(popularityKey);
     }
+
 
     public void delete(String key) {
         try {
             redisTemplate.delete(key);
         } catch (Exception e) {
             log.error(e.getMessage());
-            // e.printStackTrace();
+//            e.printStackTrace();
         }
     }
 
