@@ -25,18 +25,41 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     private static final Logger log= LoggerFactory.getLogger(RateLimitFilter.class);
 
-    @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
+@Override
+protected void doFilterInternal(HttpServletRequest request,
+                                HttpServletResponse response,
+                                FilterChain filterChain)
+        throws ServletException, IOException {
+
+    try {
+        String email = null;
+
         try {
-            String email= authUtil.getId();
-            if (!rateLimiter.checkForRateLimiting(email)){
-                response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
-                response.getWriter().write("Too many requests, try again later.");
-                throw new RuntimeException("Too Many Requests");
-            }
-            filterChain.doFilter(request, response);
+            email = authUtil.getId();
         } catch (Exception e) {
-            log.error(e.getMessage());
+            // SecurityContext not available → treat as anonymous
+            email = null;
         }
+
+        // If no user → just continue request safely
+        if (email == null) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        if (!rateLimiter.checkForRateLimiting(email)) {
+            response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
+            response.getWriter().write("Too many requests, try again later.");
+            return; // IMPORTANT: stop cleanly
+        }
+
+        filterChain.doFilter(request, response);
+
+    } catch (Exception e) {
+        log.error("RateLimitFilter failed", e);
+
+        // NEVER block request silently
+        filterChain.doFilter(request, response);
     }
+}
 }
