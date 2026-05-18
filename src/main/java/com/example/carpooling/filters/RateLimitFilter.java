@@ -23,20 +23,35 @@ public class RateLimitFilter extends OncePerRequestFilter {
     @Autowired
     private AuthUtil authUtil;
 
-    private static final Logger log= LoggerFactory.getLogger(RateLimitFilter.class);
+    private static final Logger log = LoggerFactory.getLogger(RateLimitFilter.class);
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+            throws ServletException, IOException {
         try {
-            String email= authUtil.getId();
-            if (!rateLimiter.checkForRateLimiting(email)){
+            String clientKey = authUtil.getId();
+            if (clientKey == null || clientKey.isBlank()) {
+                clientKey = resolveClientKey(request);
+            }
+
+            if (!rateLimiter.checkForRateLimiting(clientKey)) {
                 response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
                 response.getWriter().write("Too many requests, try again later.");
-                throw new RuntimeException("Too Many Requests");
+                return;
             }
-            filterChain.doFilter(request, response);
         } catch (Exception e) {
-            log.error(e.getMessage());
+            log.error("Rate limiting failed, allowing request to continue", e);
         }
+
+        filterChain.doFilter(request, response);
+    }
+
+    private String resolveClientKey(HttpServletRequest request) {
+        String forwardedFor = request.getHeader("X-Forwarded-For");
+        if (forwardedFor != null && !forwardedFor.isBlank()) {
+            return "ip:" + forwardedFor.split(",")[0].trim();
+        }
+
+        return "ip:" + request.getRemoteAddr();
     }
 }
