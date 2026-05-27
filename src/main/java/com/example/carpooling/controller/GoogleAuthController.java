@@ -27,94 +27,94 @@ import java.util.UUID;
 @RequestMapping("/auth/google")
 public class GoogleAuthController {
 
-    private static final Logger log = LoggerFactory.getLogger(GoogleAuthController.class);
-    @Value("${GOOGLE_CLIENT_ID}")
-    private String clientId;
+  private static final Logger log = LoggerFactory.getLogger(GoogleAuthController.class);
+  @Value("${GOOGLE_CLIENT_ID}")
+  private String clientId;
 
-    @Value("${GOOGLE_CLIENT_SECRET}")
-    private String clientSecret;
+  @Value("${GOOGLE_CLIENT_SECRET}")
+  private String clientSecret;
 
-    @Autowired
-    private RestTemplate restTemplate;
+  @Autowired
+  private RestTemplate restTemplate;
 
-    @Autowired
-    UserDetailsServiceImpl userDetailsService;
+  @Autowired
+  UserDetailsServiceImpl userDetailsService;
 
-    @Autowired
-    private PasswordEncoder passwordEncoder;
+  @Autowired
+  private PasswordEncoder passwordEncoder;
 
-    @Autowired
-    private UserRepository userRepository;
+  @Autowired
+  private UserRepository userRepository;
 
-    @Autowired
-    private JwtUtil jwtUtil;
+  @Autowired
+  private JwtUtil jwtUtil;
 
-    @Autowired
-    private AnalyticsService analyticsService;
+  @Autowired
+  private AnalyticsService analyticsService;
 
-    @GetMapping("/callback")
-    public ResponseEntity<?> handleGoogleCallback(@RequestParam String code) {
-        try {
-            String tokenEndpoint = "https://oauth2.googleapis.com/token";
-            MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
-            params.add("code", code);
-            params.add("client_id", clientId);
-            params.add("client_secret", clientSecret);
-            params.add("redirect_uri", "http://localhost:5001/auth/google/callback");
-            params.add("grant_type", "authorization_code");
+  @GetMapping("/callback")
+  public ResponseEntity<?> handleGoogleCallback(@RequestParam String code) {
+    try {
+      String tokenEndpoint = "https://oauth2.googleapis.com/token";
+      MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
+      params.add("code", code);
+      params.add("client_id", clientId);
+      params.add("client_secret", clientSecret);
+      params.add("redirect_uri", "https://carpooling-5as1.onrender.com/auth/google/callback");
+      params.add("grant_type", "authorization_code");
 
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+      HttpHeaders headers = new HttpHeaders();
+      headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
 
-            HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(params, headers);
-            ResponseEntity<Map> tokenResponse = restTemplate.postForEntity(tokenEndpoint, request, Map.class);
+      HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(params, headers);
+      ResponseEntity<Map> tokenResponse = restTemplate.postForEntity(tokenEndpoint, request, Map.class);
 
-            String idToken = (String) tokenResponse.getBody().get("id_token");
-            String userInfoUrl = "https://oauth2.googleapis.com/tokeninfo?id_token=" + idToken;
-            ResponseEntity<Map> userInfoResponse = restTemplate.getForEntity(userInfoUrl, Map.class);
+      String idToken = (String) tokenResponse.getBody().get("id_token");
+      String userInfoUrl = "https://oauth2.googleapis.com/tokeninfo?id_token=" + idToken;
+      ResponseEntity<Map> userInfoResponse = restTemplate.getForEntity(userInfoUrl, Map.class);
 
-            if (userInfoResponse.getStatusCode() == HttpStatus.OK) {
-                Map<String, Object> userInfo = userInfoResponse.getBody();
-                String email = (String) userInfo.get("email");
+      if (userInfoResponse.getStatusCode() == HttpStatus.OK) {
+        Map<String, Object> userInfo = userInfoResponse.getBody();
+        String email = (String) userInfo.get("email");
 
-                User user = userRepository.findByEmail(email);
-                if(user==null){
-                    user = new User();
-                    user.setEmail(email);
-                    user.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));
-                    user.setRole(Role.RIDER);
-                    user.setRating(0);
-                    user.setRating_count(0);
-                    analyticsService.incUsers();
-                    userRepository.save(user);
-                }
-
-//                try {
-//                    userDetailsService.loadUserByUsername(email);
-//                } catch (Exception e) {
-//                    User user = new User();
-//                    user.setEmail(email);
-//                    user.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));
-//                    user.setRole(Role.RIDER);
-//                    user.setRating(0);
-//                    user.setRating_count(0);
-//                    analyticsService.incUsers();
-//                    userRepository.save(user);
-//                }
-
-                String jwtToken = jwtUtil.generateToken(user.getId().toHexString(),Role.RIDER.name());
-
-                return ResponseEntity.status(302)
-                        .header("Location", "http://localhost:5173/oauth-success?token=" + jwtToken)
-                        .build();
-            }
-
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User info fetch failed.");
-
-        } catch (Exception e) {
-            log.error("Exception occurred while handleGoogleCallback " + e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        User user = userRepository.findByEmail(email);
+        if (user == null) {
+          user = new User();
+          user.setEmail(email);
+          user.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));
+          user.setRole(Role.RIDER);
+          user.setRating(0);
+          user.setRating_count(0);
+          analyticsService.incUsers();
+          userRepository.save(user);
         }
+
+        // try {
+        // userDetailsService.loadUserByUsername(email);
+        // } catch (Exception e) {
+        // User user = new User();
+        // user.setEmail(email);
+        // user.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));
+        // user.setRole(Role.RIDER);
+        // user.setRating(0);
+        // user.setRating_count(0);
+        // analyticsService.incUsers();
+        // userRepository.save(user);
+        // }
+
+        String jwtToken = jwtUtil.generateToken(user.getId().toHexString(), Role.RIDER.name());
+
+        return ResponseEntity.status(302)
+            .header("Location", "https://carpooling-frontend-iota.vercel.app/oauth-success?token=" + jwtToken)
+            .build();
+      }
+
+      return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User info fetch failed.");
+
+    } catch (Exception e) {
+      log.error("Exception occurred while handleGoogleCallback " + e.getMessage());
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
     }
+  }
 
 }
