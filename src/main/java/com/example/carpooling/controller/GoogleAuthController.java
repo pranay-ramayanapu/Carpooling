@@ -34,6 +34,12 @@ public class GoogleAuthController {
   @Value("${GOOGLE_CLIENT_SECRET}")
   private String clientSecret;
 
+  @Value("${app.frontend-url}")
+  private String frontendUrl;
+
+  @Value("${app.google-redirect-uri}")
+  private String googleRedirectUri;
+
   @Autowired
   private RestTemplate restTemplate;
 
@@ -60,7 +66,7 @@ public class GoogleAuthController {
       params.add("code", code);
       params.add("client_id", clientId);
       params.add("client_secret", clientSecret);
-      params.add("redirect_uri", "https://carpooling-5as1.onrender.com/auth/google/callback");
+      params.add("redirect_uri", googleRedirectUri);
       params.add("grant_type", "authorization_code");
 
       HttpHeaders headers = new HttpHeaders();
@@ -103,9 +109,10 @@ public class GoogleAuthController {
         // }
 
         String jwtToken = jwtUtil.generateToken(user.getId().toHexString(), Role.RIDER.name());
+        String successUrl = normalizeUrl(frontendUrl) + "/oauth-success?token=" + jwtToken;
 
         return ResponseEntity.status(302)
-            .header("Location", "https://carpooling-frontend-iota.vercel.app/oauth-success?token=" + jwtToken)
+            .header("Location", successUrl)
             .build();
       }
 
@@ -115,6 +122,13 @@ public class GoogleAuthController {
       log.error("Exception occurred while handleGoogleCallback " + e.getMessage());
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
     }
+  }
+
+  private String normalizeUrl(String value) {
+    if (value == null) {
+      return "";
+    }
+    return value.endsWith("/") ? value.substring(0, value.length() - 1) : value;
   }
 
 }

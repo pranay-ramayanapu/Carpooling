@@ -25,6 +25,9 @@ import java.util.List;
 @EnableMethodSecurity
 public class SecurityConfig {
 
+  @org.springframework.beans.factory.annotation.Value("${app.frontend-url}")
+  private String frontendUrl;
+
   @Autowired
   private JwtFilter jwtFilter;
 
@@ -55,9 +58,7 @@ public class SecurityConfig {
     CorsConfiguration config = new CorsConfiguration();
     config.setAllowedOrigins(List.of(
         "http://localhost:5173",
-        "https://carpooling-frontend-swart.vercel.app/",
-        "https://carpoolingconnect.vercel.app/",
-        "https://carpooling-frontend-iota.vercel.app/"));
+        normalizeOrigin(frontendUrl)));
     config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
     config.setAllowedHeaders(List.of("*"));
     config.setAllowCredentials(true);
@@ -65,6 +66,13 @@ public class SecurityConfig {
     UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
     source.registerCorsConfiguration("/**", config);
     return new CorsFilter(source);
+  }
+
+  private String normalizeOrigin(String value) {
+    if (value == null) {
+      return null;
+    }
+    return value.endsWith("/") ? value.substring(0, value.length() - 1) : value;
   }
 
   @Bean
