@@ -19,12 +19,12 @@ public class EmailConsumer {
     private EmaildlqProducer emaildlqProducer;
 
     @RabbitListener(queues = "email-queue")
-    public void listen(EmailDto emailDto){
+    public void listen(EmailDto emailDto) {
         try {
             emailService.sendEmergencyEmail(emailDto.getEmail(), emailDto.getSubject(), emailDto.getBody());
-            log.info("Email sent successfully to: {}",emailDto.getEmail());
+            log.info("Email sent successfully to: {}", emailDto.getEmail());
         } catch (Exception e) {
-            log.error("failed to send email");
+            log.error("Failed to send email to {}. Moving to DLQ.", emailDto.getEmail(), e);
             emaildlqProducer.sendDlq(emailDto);
             log.info("email added to dlq");
         }

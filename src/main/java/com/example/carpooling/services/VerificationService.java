@@ -9,6 +9,8 @@ import java.util.Random;
 
 @Service
 public class VerificationService {
+    private static final long OTP_TTL_SECONDS = 600L;
+
     @Autowired
     private RedisService redisService;
 
@@ -21,18 +23,19 @@ public class VerificationService {
         return String.valueOf(otp);
     }
 
-    public void sendOtp(String email){
-        String otp=generateOtp();
-        String body = "Your otp for verfication of email in CarpoolingConnect : "+otp;
-        EmailDto emailDto = new EmailDto(email,"Otp for email verification",body);
-        redisService.set(email,otp,120l);
+    public void sendOtp(String email) {
+        String otp = generateOtp();
+        String body = "Your otp for verfication of email in CarpoolingConnect : " + otp;
+        EmailDto emailDto = new EmailDto(email, "Otp for email verification", body);
+        redisService.set(email, otp, OTP_TTL_SECONDS);
 
         emailProducer.sendEmail(emailDto);
     }
 
-    public boolean validateOtp(String email,String otp){
-        String dbotp = redisService.get(email,String.class);
-        if(dbotp==null || !dbotp.equals(otp)) return false;
+    public boolean validateOtp(String email, String otp) {
+        String dbotp = redisService.get(email, String.class);
+        if (dbotp == null || !dbotp.equals(otp))
+            return false;
         return true;
     }
 }

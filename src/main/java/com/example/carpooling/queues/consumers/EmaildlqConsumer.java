@@ -12,6 +12,8 @@ import org.springframework.stereotype.Component;
 @Component
 public class EmaildlqConsumer {
 
+    private static final long DLQ_RETRY_DELAY_MS = 30_000L;
+
     private static final Logger log = LoggerFactory.getLogger(EmaildlqConsumer.class);
 
     @Autowired
@@ -23,11 +25,11 @@ public class EmaildlqConsumer {
     @RabbitListener(queues = "email-dlq")
     public void listen(EmailDto emailDto) {
         try {
-            Thread.sleep(2 * 60 * 1000);
+            Thread.sleep(DLQ_RETRY_DELAY_MS);
             emailService.sendEmergencyEmail(emailDto.getEmail(), emailDto.getSubject(), emailDto.getBody());
             log.info("Email retry success (DLQ): {}", emailDto.getEmail());
         } catch (Exception e) {
-            log.error("Final email retry failed (DLQ): {}", emailDto.getEmail());
+            log.error("Final email retry failed (DLQ): {}", emailDto.getEmail(), e);
             failedEmailService.saveFailedEmail(emailDto, e.getMessage());
         }
     }
