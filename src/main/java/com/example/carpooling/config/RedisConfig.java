@@ -29,15 +29,15 @@ public class RedisConfig {
     }
 
     @Bean
-    public RedisTemplate redisTemplate(RedisConnectionFactory redisConnectionFactory){
-         RedisTemplate redisTemplate = new RedisTemplate<>();
-         redisTemplate.setConnectionFactory(redisConnectionFactory);
-         redisTemplate.setKeySerializer(new StringRedisSerializer());
+    public RedisTemplate redisTemplate(RedisConnectionFactory redisConnectionFactory) {
+        RedisTemplate redisTemplate = new RedisTemplate<>();
+        redisTemplate.setConnectionFactory(redisConnectionFactory);
+        redisTemplate.setKeySerializer(new StringRedisSerializer());
         GenericJackson2JsonRedisSerializer serializer = new GenericJackson2JsonRedisSerializer();
         redisTemplate.setValueSerializer(serializer);
         redisTemplate.setHashValueSerializer(serializer);
 
-         return redisTemplate;
+        return redisTemplate;
 
     }
 }
