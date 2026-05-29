@@ -4,31 +4,28 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
-import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
-import org.springframework.data.redis.connection.jedis.JedisClientConfiguration;
-import org.springframework.data.redis.connection.jedis.JedisConnectionFactory;
+import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
+import io.lettuce.core.RedisURI;
 
 @Configuration
 public class RedisConfig {
 
-    @Value("${REDIS_HOST}")
-    private String redisHost;
-
-    @Value("${REDIS_PASSWORD}")
-    private String redisPassword;
-
-    @Value("${REDIS_PORT}")
-    private int redisPort;
+    @Value("${spring.redis.url:#{null}}")
+    private String redisUrl;
 
     @Bean
-    public JedisConnectionFactory jedisConnectionFactory() {
-        JedisClientConfiguration jedisClientConfiguration = JedisClientConfiguration.builder().build();
-        RedisStandaloneConfiguration redisStandaloneConfiguration = new RedisStandaloneConfiguration(redisHost, 12713);
-        redisStandaloneConfiguration.setPassword(redisPassword);
-        return new JedisConnectionFactory(redisStandaloneConfiguration, jedisClientConfiguration);
+    public RedisConnectionFactory redisConnectionFactory() {
+        if (redisUrl != null && !redisUrl.isEmpty()) {
+            // Use URL-based configuration for Upstash
+            RedisURI uri = RedisURI.create(redisUrl);
+            return new LettuceConnectionFactory(uri);
+        } else {
+            // Fallback for non-URL config
+            return new LettuceConnectionFactory();
+        }
     }
 
     @Bean
