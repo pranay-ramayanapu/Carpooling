@@ -24,12 +24,12 @@ public class VerificationService {
     }
 
     public void sendOtp(String email) throws Exception {
-        String otp=generateOtp();
-        String body = "Your otp for verfication of email in CarpoolingConnect : "+otp;
-        EmailDto emailDto = new EmailDto(email,"Otp for email verification",body);
-        
+        String otp = generateOtp();
+        String body = "Your otp for verfication of email in CarpoolingConnect : " + otp;
+        EmailDto emailDto = new EmailDto(email, "Otp for email verification", body);
+
         try {
-            redisService.set(email,otp,OTP_TTL_SECONDS);
+            redisService.set(email, otp, OTP_TTL_SECONDS);
         } catch (Exception e) {
             throw new Exception("Failed to store OTP in cache. Redis connection error: " + e.getMessage());
         }
