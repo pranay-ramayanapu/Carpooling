@@ -6,6 +6,8 @@ import com.example.carpooling.repositories.UserRepository;
 import com.example.carpooling.services.AnalyticsService;
 import com.example.carpooling.services.UserDetailsServiceImpl;
 import com.example.carpooling.utils.JwtUtil;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,7 +22,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestTemplate;
 
-import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -44,6 +45,9 @@ public class GoogleAuthController {
   private RestTemplate restTemplate;
 
   @Autowired
+  private ObjectMapper objectMapper;
+
+  @Autowired
   UserDetailsServiceImpl userDetailsService;
 
   @Autowired
@@ -57,6 +61,21 @@ public class GoogleAuthController {
 
   @Autowired
   private AnalyticsService analyticsService;
+
+  @GetMapping("/start")
+  public ResponseEntity<Void> startGoogleLogin() {
+    String authorizationUrl = "https://accounts.google.com/o/oauth2/v2/auth"
+        + "?client_id=" + clientId
+        + "&redirect_uri=" + googleRedirectUri
+        + "&response_type=code"
+        + "&scope=openid%20email%20profile"
+        + "&access_type=offline"
+        + "&prompt=consent";
+
+    return ResponseEntity.status(HttpStatus.FOUND)
+        .header(HttpHeaders.LOCATION, authorizationUrl)
+        .build();
+  }
 
   @GetMapping("/callback")
   public ResponseEntity<?> handleGoogleCallback(@RequestParam String code) {
@@ -73,15 +92,29 @@ public class GoogleAuthController {
       headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
 
       HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(params, headers);
-      ResponseEntity<Map> tokenResponse = restTemplate.postForEntity(tokenEndpoint, request, Map.class);
+      ResponseEntity<String> tokenResponse = restTemplate.postForEntity(tokenEndpoint, request, String.class);
 
-      String idToken = (String) tokenResponse.getBody().get("id_token");
+      if (!tokenResponse.getStatusCode().is2xxSuccessful() || tokenResponse.getBody() == null) {
+        log.error("Google token exchange failed. Status={}, Body={}", tokenResponse.getStatusCode(),
+            tokenResponse.getBody());
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Google token exchange failed.");
+      }
+
+      JsonNode tokenJson = objectMapper.readTree(tokenResponse.getBody());
+      String idToken = tokenJson.path("id_token").asText(null);
+      if (idToken == null || idToken.isBlank()) {
+        log.error("Google token exchange returned no id_token. Body={}", tokenResponse.getBody());
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Google login did not return an ID token.");
+      }
       String userInfoUrl = "https://oauth2.googleapis.com/tokeninfo?id_token=" + idToken;
-      ResponseEntity<Map> userInfoResponse = restTemplate.getForEntity(userInfoUrl, Map.class);
+      ResponseEntity<String> userInfoResponse = restTemplate.getForEntity(userInfoUrl, String.class);
 
       if (userInfoResponse.getStatusCode() == HttpStatus.OK) {
-        Map<String, Object> userInfo = userInfoResponse.getBody();
-        String email = (String) userInfo.get("email");
+        JsonNode userInfoJson = objectMapper.readTree(userInfoResponse.getBody());
+        String email = userInfoJson.path("email").asText(null);
+        if (email == null || email.isBlank()) {
+          return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Google login did not return an email.");
+        }
 
         User user = userRepository.findByEmail(email);
         if (user == null) {
