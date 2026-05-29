@@ -23,20 +23,28 @@ public class RateLimitFilter extends OncePerRequestFilter {
     @Autowired
     private AuthUtil authUtil;
 
-    private static final Logger log= LoggerFactory.getLogger(RateLimitFilter.class);
+    private static final Logger log = LoggerFactory.getLogger(RateLimitFilter.class);
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+            throws ServletException, IOException {
         try {
-            String email= authUtil.getId();
-            if (!rateLimiter.checkForRateLimiting(email)){
+            String email = authUtil.getId();
+            if (email == null || email.isBlank()) {
+                filterChain.doFilter(request, response);
+                return;
+            }
+
+            if (!rateLimiter.checkForRateLimiting(email)) {
                 response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
                 response.getWriter().write("Too many requests, try again later.");
-                throw new RuntimeException("Too Many Requests");
+                return;
             }
+
             filterChain.doFilter(request, response);
         } catch (Exception e) {
-            log.error(e.getMessage());
+            log.error("Rate limiting failed for request {} {}", request.getMethod(), request.getRequestURI(), e);
+            filterChain.doFilter(request, response);
         }
     }
 }
