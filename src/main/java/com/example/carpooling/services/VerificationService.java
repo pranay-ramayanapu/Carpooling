@@ -23,19 +23,28 @@ public class VerificationService {
         return String.valueOf(otp);
     }
 
-    public void sendOtp(String email) {
-        String otp = generateOtp();
-        String body = "Your otp for verfication of email in CarpoolingConnect : " + otp;
-        EmailDto emailDto = new EmailDto(email, "Otp for email verification", body);
-        redisService.set(email, otp, OTP_TTL_SECONDS);
+    public void sendOtp(String email) throws Exception {
+        String otp=generateOtp();
+        String body = "Your otp for verfication of email in CarpoolingConnect : "+otp;
+        EmailDto emailDto = new EmailDto(email,"Otp for email verification",body);
+        
+        try {
+            redisService.set(email,otp,OTP_TTL_SECONDS);
+        } catch (Exception e) {
+            throw new Exception("Failed to store OTP in cache. Redis connection error: " + e.getMessage());
+        }
 
         emailProducer.sendEmail(emailDto);
     }
 
-    public boolean validateOtp(String email, String otp) {
-        String dbotp = redisService.get(email, String.class);
-        if (dbotp == null || !dbotp.equals(otp))
-            return false;
-        return true;
+    public boolean validateOtp(String email, String otp) throws Exception {
+        try {
+            String dbotp = redisService.get(email, String.class);
+            if (dbotp == null || !dbotp.equals(otp))
+                return false;
+            return true;
+        } catch (Exception e) {
+            throw new Exception("Failed to validate OTP. Redis connection error: " + e.getMessage());
+        }
     }
 }
