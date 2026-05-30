@@ -141,7 +141,7 @@ public class GoogleAuthController {
         // userRepository.save(user);
         // }
 
-        String jwtToken = jwtUtil.generateToken(user.getId().toHexString(), Role.RIDER.name());
+        String jwtToken = jwtUtil.generateToken(user.getId().toHexString(), user.getRole().name());
         String successUrl = normalizeUrl(frontendUrl) + "/oauth-success?token=" + jwtToken;
 
         return ResponseEntity.status(302)
