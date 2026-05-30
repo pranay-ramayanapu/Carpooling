@@ -8,6 +8,7 @@ import org.springframework.http.MediaType;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
@@ -53,6 +54,9 @@ public class EmailService {
         if (sendgridApiKey == null || sendgridApiKey.isBlank()) {
             throw new IllegalStateException("SENDGRID_API_KEY is not configured");
         }
+        if (fromEmail == null || fromEmail.isBlank()) {
+            throw new IllegalStateException("MAIL_FROM_EMAIL is not configured");
+        }
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -64,15 +68,21 @@ public class EmailService {
                 "subject", subject,
                 "content", List.of(Map.of("type", "text/plain", "value", message)));
 
-        var response = restTemplate.postForEntity(
-                "https://api.sendgrid.com/v3/mail/send",
-                new HttpEntity<>(payload, headers),
-                String.class);
+        try {
+            var response = restTemplate.postForEntity(
+                    "https://api.sendgrid.com/v3/mail/send",
+                    new HttpEntity<>(payload, headers),
+                    String.class);
 
-        if (!response.getStatusCode().is2xxSuccessful()) {
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                throw new IllegalStateException(
+                        "SendGrid mail failed with status " + response.getStatusCode() +
+                                (response.hasBody() && response.getBody() != null ? ": " + response.getBody() : ""));
+            }
+        } catch (RestClientResponseException e) {
             throw new IllegalStateException(
-                    "SendGrid mail failed with status " + response.getStatusCode() +
-                            (response.hasBody() && response.getBody() != null ? ": " + response.getBody() : ""));
+                    "SendGrid mail failed with status " + e.getStatusCode() + ": " + e.getResponseBodyAsString(),
+                    e);
         }
     }
 }
