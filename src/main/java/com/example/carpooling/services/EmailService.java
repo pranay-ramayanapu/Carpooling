@@ -64,9 +64,15 @@ public class EmailService {
                 "subject", subject,
                 "content", List.of(Map.of("type", "text/plain", "value", message)));
 
-        restTemplate.postForEntity(
+        var response = restTemplate.postForEntity(
                 "https://api.sendgrid.com/v3/mail/send",
                 new HttpEntity<>(payload, headers),
                 String.class);
+
+        if (!response.getStatusCode().is2xxSuccessful()) {
+            throw new IllegalStateException(
+                    "SendGrid mail failed with status " + response.getStatusCode() +
+                            (response.hasBody() && response.getBody() != null ? ": " + response.getBody() : ""));
+        }
     }
 }
